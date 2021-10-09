@@ -1,0 +1,166 @@
+<p><strong>Table of Contents:</strong></p>
+<p>
+    <ac:structured-macro ac:name="toc" ac:schema-version="1">
+    </ac:structured-macro>
+</p>
+<h2>Product Requirements</h2>
+<table>
+    <tbody>
+        <tr>
+            <th>Wiki Version</th>
+            <th>Wiki Document</th>
+            <th>Modified Date</th>
+            <th>Modified by</th>
+            <th>Comments</th>
+        </tr>
+        <tr>
+            <td colspan="1"></td>
+            <td colspan="1"></td>
+            <td colspan="1"></td>
+            <td colspan="1"></td>
+            <td colspan="1">
+                <a class="external-link" href="https://saeljira.it.here.com/browse/{{ page_data.aepreq_key }}" rel="nofollow">Details in JIRA ticket</a></td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Program Delivery Schedule</h2>
+    <p>Product Requirements implementation is planned in release SDK1.X according to the page with release scope:&nbsp;
+        <a href="/display/HereAutoSDK1x/HASDK1.x+-+Releases">HASDK1.x - Releases</a>&nbsp;
+        and FixVersion provided in JIRA ticket.</p>
+
+<h2>JIRA Product Requirements Status</h2>
+<p>
+    <ac:structured-macro ac:name="jira" ac:schema-version="1">
+        <ac:parameter ac:name="server">Sael Jira</ac:parameter>
+        <ac:parameter ac:name="columns">key,summary,fixversions,status</ac:parameter>
+        <ac:parameter ac:name="maximumIssues">20</ac:parameter>
+        <ac:parameter ac:name="jqlQuery">project in (AEPREQ) and key in ({{ page_data.aepreq_key }}) order by fixversion</ac:parameter>
+    </ac:structured-macro></p>
+<h2>Functional Test Cases</h2>
+<table>
+        <tbody>
+            <tr>
+                <th>Use Case ID</th>
+                <th>Scenario Category</th>
+                <th>Scenario Description</th>
+                <th>JIRA Zephyr Test</th>
+                <th>Label in Jira</th>
+                <th>Readiness Status</th>
+                <th>Test in gerrit</th>
+                <th>Comments</th>
+            </tr>
+
+            {% for jira_test in page_data.jira_tests %}
+            <tr>
+                <td colspan="1">N/A</td>
+                <td colspan="1"></td>
+                <td colspan="1"><a href="{{ jira_test.url }}">{{ jira_test.summary }}</a></td>
+                <td colspan="1"><a href="{{ jira_test.url }}">{{ jira_test.key }}</a></td>
+                <td colspan="1">{{ jira_test.label }}</td>
+                <td colspan="1"><div class="content-wrapper"><p><span class="status-macro aui-lozenge aui-lozenge-success conf-macro output-inline" data-hasbody="false" data-macro-name="status">{{ jira_test.status }}</span></p></div></td>
+                <td colspan="1"><a href="{{ jira_test.gerrit_commit }}">{{ jira_test.gerrit_commit }}</a></td>
+                <td colspan="1"></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+<p></p>
+<div id="expander-1102269011" class="expand-container">
+    <div id="expander-control-1102269011" class="expand-control">
+        <span class="expand-control-icon icon">&nbsp;</span>
+        <span class="expand-control-text">Readiness Status List</span>
+    </div>
+    <div id="expander-content-1102269011" class="expand-content expand-hidden" style="display: none; opacity: 0;">
+        <p><span class="status-macro aui-lozenge conf-macro output-inline" data-hasbody="false" data-macro-name="status">TODO</span></p>
+        <p><span class="status-macro aui-lozenge aui-lozenge-moved conf-macro output-inline" data-hasbody="false" data-macro-name="status">IN PROGRESS</span></p>
+        <p><span class="status-macro aui-lozenge aui-lozenge-success conf-macro output-inline" data-hasbody="false" data-macro-name="status">DONE</span></p>
+        <p><span class="status-macro aui-lozenge aui-lozenge-current conf-macro output-inline" data-hasbody="false" data-macro-name="status">NOT AUTOMATABLE</span></p>
+    </div>
+</div>
+<h2>Test Environment Details</h2>
+<table>
+    <tbody>
+        <tr>
+            <th colspan="1">SDK Version</th>
+            <th colspan="1">Platform</th>
+            <th colspan="1">Map Type</th>
+            <th colspan="1">Map Revision</th>
+            <th colspan="1">Map Version</th>
+            <th colspan="1">Map Region</th>
+        </tr>
+        <tr>
+            <td colspan="1"><a href="https://confluence.in.here.com/display/HereAutoSDK1x/{{ page_data.sdk_version }}">{{ page_data.sdk_version }}</a></td>
+            <td colspan="1">{{ page_data.platform }}</td>
+            <td colspan="1">SuperSet</td>
+            <td colspan="1">{{ page_data.map_revision }}</td>
+            <td colspan="1">{{ page_data.map_version }}</td>
+            <td colspan="1">{{ page_data.map_region }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Functional Test Report</h2><ac:structured-macro ac:name="gadget" ac:schema-version="1">
+    <ac:parameter ac:name="isConfigured">true</ac:parameter>
+    <ac:parameter ac:name="preferences">executionName=Execution%20Details&amp;zfjQueryType=zqlFilter&amp;filterId={{ page_data.filter_id }}&amp;runQuery=true&amp;howMany=5&amp;columnNames=cyclename%7Cissuekey%7Ctestsummary%7Cversion%7Cexecutionstatus&amp;columnNames-select=-1&amp;isConfigured=true&amp;refresh=15</ac:parameter>
+    <ac:parameter ac:name="url">https://saeljira.it.here.com/rest/gadgets/1.0/g/com.thed.zephyr.je:zephyr-je-gadget-zql-filter/gadgets/zql-gadget.xml</ac:parameter>
+    <ac:parameter ac:name="width">100%</ac:parameter>
+    <ac:parameter ac:name="columnNames-select">-1</ac:parameter>
+</ac:structured-macro>
+<h2>Product Requirement Defects</h2><p><ac:structured-macro ac:name="jira" ac:schema-version="1">
+    <ac:parameter ac:name="server">Sael Jira</ac:parameter>
+    <ac:parameter ac:name="columns">key,priority,summary,status,fixversions</ac:parameter>
+    <ac:parameter ac:name="maximumIssues">20</ac:parameter>
+    <ac:parameter ac:name="jqlQuery">project = HERESDK and issuetype in (Bug, Question) AND (issue in linkedIssues({{ page_data.aepreq_key }})) ORDER BY priority DESC, status DESC</ac:parameter>
+</ac:structured-macro></p>
+
+<h2>Glossary</h2>
+<table>
+    <tbody>
+    <tr>
+        <th>ID</th>
+        <th>Term</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td>1</td>
+        <td>Use Case</td>
+        <td>Defining how program end users will use implemented product requirements on their side. It should contain clear actions or steps to identify the requirement achieved.</td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td>Positive Scenario</td>
+        <td>Positive Scenario testing determines that your application works as expected. If an error is encountered during Positive Scenario testing, the test fails and new bug should be created in JIRA.</td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td>Negative Scenario</td>
+        <td>Negative Scenario testing ensures that your application can gracefully handle invalid input or unexpected user behavior. For example, if a user tries to type a letter in a numeric field, the correct behavior in this case would be to display the “Incorrect data type, please enter a number” message. The purpose of negative testing is to detect such situations and prevent applications from crashing. Also, negative testing helps you improve the quality of your application and find its weak points. If Negative scenario fails it triggers a bug in JIRA.</td>
+    </tr>
+    <tr>
+        <td>4</td>
+        <td>Boundary Cases</td>
+        <td>Boundary Case is a behavior of a system when one of its inputs is at or just beyond its maximum or minimum limits.</td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td>Alternative Flow</td>
+        <td>An Alternate Flow is a step or a sequence of steps that achieves the use case’s goal following different steps than described in the general scenario.</td>
+    </tr>
+    <tr>
+        <td>6</td>
+        <td>GUI Checks</td>
+        <td>GUI testing is the process of ensuring proper functionality of the graphical user interface (GUI), making sure it conforms to its specifications evaluating design elements such as layout, colors, fonts, font sizes, labels, text boxes, text formatting, captions, buttons, lists, icons, links and content, language localisation.</td>
+    </tr>
+    <tr>
+        <td>7</td>
+        <td>Label in JIRA</td>
+        <td>Label used in JIRA Zephyr to identify all tests developed for the related feature. It could be used simply to get all tests covering a product requirement and also report when tests integrated with CI.</td>
+    </tr>
+    <tr>
+        <td>8</td>
+        <td>Test in gerrit</td>
+        <td>Test developed and committed into test cases source.</td>
+    </tr>
+    </tbody>
+</table>

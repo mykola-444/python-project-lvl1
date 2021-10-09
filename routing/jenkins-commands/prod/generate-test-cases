@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -xe
+
+
+# Check mandatory variables
+source map-integration-testing/ci/routing/common_functions.sh
+exit_if_no_env_var LDM_REGION_DVN
+exit_if_no_env_var CONFIG_TEMPLATE
+create_dir_if_not_exists data
+
+# Docker preparation and execution
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull ${DOCKER_IMAGE} && exception_docker "${BUILD_TAG}"
+docker run --env LDM_REGION_DVN=${LDM_REGION_DVN} \
+           --env MITF_PATH="/workspace" \
+           --env DB_PATH="/workspace/data" \
+           --env CONFIG_TEMPLATE="${CONFIG_TEMPLATE}" \
+           --env AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
+           --env BUCKET="${MITF_ARTIFACTS_BUCKET}" \
+           --env LOCAL_RUN=${LOCAL_RUN} \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --rm \
+           --user=bldadmin \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir=/workspace \
+           ${DOCKER_IMAGE} map-integration-testing/ci/routing/generate_tests.sh ${MODE} \
+                                                                                ${DESIRED_TC_QTY} \
+                                                                                ${GENERATORS}

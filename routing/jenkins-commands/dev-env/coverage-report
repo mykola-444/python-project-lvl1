@@ -1,0 +1,21 @@
+docker run --env=MITF_PATH="/workspace/map-integration-testing" \
+           --env=PYTHONPATH="/workspace/map-integration-testing:/workspace/map-integration-testing/ci/routing"  \
+           --env=MAP_FORMAT=${MAP_FORMAT} \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --net=host \
+           --rm \
+           --user=bldadmin \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir=/workspace \
+           ${MITF_IMAGE} bash -esux << "EOS"
+           pip3 install json2html  # Temp workaround until 'json2html' is not installed in MITF docker image
+           cd /workspace/map-integration-testing/ && \
+           python3 ./ci/routing/acceptance/coverage_report.py \
+                -r /workspace/xunit.xml \
+                -r /workspace/xunit-2.xml \
+                -s /workspace/share/here/routing/spec/international/ > \
+                /workspace/coverage_report.json
+           python3 ./ci/routing/cov_report2html.py -i /workspace/coverage_report.json > \
+                /workspace/coverage_report.html
+EOS

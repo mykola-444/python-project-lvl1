@@ -1,0 +1,70 @@
+# download build artifact from mos.cci
+if [ $MAP_FORMAT == "F8" ]; then
+    wget --tries=3 --timeout=120 https://mos.cci.in.here.com/job/$SERVER_BUILD_JOB/$SERVER_BUILD_NUMBER/s3/download/build/test_routing_component.tgz
+    tar xf test_routing_component.tgz
+elif [[ $MAP_FORMAT == "NDS_SPARTA" ]]; then
+    wget --tries=3 --timeout=120 https://corenav.cci.in.here.com/job/$CLIENT_BUILD_JOB/$CLIENT_BUILD_NUMBER/s3/download/build/test_routing_component.tgz
+    tar xf test_routing_component.tgz
+elif [[ $MAP_FORMAT == *"NDS_"* ]]; then
+    wget --tries=3 --timeout=120 https://mos.cci.in.here.com/job/$CLIENT_BUILD_JOB/$CLIENT_BUILD_NUMBER/s3/download/build/test_routing_component.tgz
+    tar xf test_routing_component.tgz
+elif [[ $MAP_FORMAT == "BRF2" ]]; then
+    wget --tries=3 --timeout=120 https://hls.cci.in.here.com/job/hls_routing/job/psv/job/build/job/$SERVER_BUILD_JOB/$SERVER_BUILD_NUMBER/s3/download/build/routing-hls.tar.gz
+    tar xf routing-hls.tar.gz
+else
+    echo "ERROR: Undetermined MAP_FORMAT=$MAP_FORMAT"
+    exit 1
+fi
+
+mkdir mitf_tests
+tar xf tests_xml.tgz -C mitf_tests
+
+# List all xml files - for debug only
+find ./mitf_tests -type f
+
+echo "Running tests using downloaded xmls"
+
+# create main xml file:
+
+cat << EOF > ci.xml
+<?xml version='1.0' encoding='UTF-8'?>
+<route_test>
+  <route_test dir="mitf_tests"/>
+</route_test>
+EOF
+
+if [[ $MAP_FORMAT == NDS_SPARTA ]]; then
+    . map-integration-testing/ci/routing/docker.cfg
+    DOCKER_IMAGE=$SPARTA_IMAGE
+else
+    . map-integration-testing/ci/routing/common_functions.sh
+    source map-integration-testing/ci/routing/docker.cfg
+    if [[ $MAP_FORMAT == NDS* ]]; then
+        DOCKER_IMAGE=$DOCKER_IMAGE_MITF_32
+    elif [[ $MAP_FORMAT == "BRF2" ]]; then
+        DOCKER_IMAGE=docker-local.artifactory.in.here.com/cci/hls/routing.runtime:amzn2-gcc7.3-1.4-de81333
+    else
+        DOCKER_IMAGE=$DOCKER_IMAGE_MITF
+    fi
+fi
+
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+docker run \
+    --env=LD_LIBRARY_PATH=installdir/lib \
+    --env=MAP_PATH_PREFIX=$MAP_PATH_PREFIX \
+    --env=LDM_REGION_DVN=$LDM_REGION_DVN \
+    --env=MAP_FORMAT=$MAP_FORMAT \
+    --env=MITF_PATH=/workspace \
+    --env=VIRTUAL_TIMEOUT=2m \
+    --interactive \
+    --name=$BUILD_TAG \
+    --net=none \
+    --rm \
+    --user=bldadmin \
+    --volume=$MAP_PATH_PREFIX:$MAP_PATH_PREFIX:ro \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/run_tests.sh

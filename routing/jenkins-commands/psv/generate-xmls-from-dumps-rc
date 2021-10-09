@@ -1,0 +1,52 @@
+# download build artifact from mos.cci
+if [ $MAP_FORMAT == "F8" ]; then
+    wget --tries=3 --timeout=120 https://mos.cci.in.here.com/job/$SERVER_BUILD_JOB/$SERVER_BUILD_NUMBER/s3/download/build/test_routing_component.tgz
+elif [[ $MAP_FORMAT == *"NDS_"* ]]; then
+    wget --tries=3 --timeout=120 https://mos.cci.in.here.com/job/$CLIENT_BUILD_JOB/$CLIENT_BUILD_NUMBER/s3/download/build/test_routing_component.tgz
+else
+    echo "ERROR: Undetermined MAP_FORMAT=$MAP_FORMAT"
+    exit 1
+fi
+
+tar xf test_routing_component.tgz
+
+mkdir mitf_dumps
+tar xf tests.tgz -C mitf_dumps
+
+# List all xml files - for debug only
+dump_number=$(find ./mitf_dumps -type f | wc -l)
+echo "INFO: Dumps number: $dump_number"
+
+echo "Running tests using downloaded dumps"
+
+.map-integration-testing/ci/routing/common_functions.sh
+source map-integration-testing/ci/routing/docker.cfg
+if [[ $MAP_FORMAT == NDS* ]]; then
+    DOCKER_IMAGE=$DOCKER_IMAGE_MITF_32
+else
+    DOCKER_IMAGE=$DOCKER_IMAGE_MITF
+fi
+
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+docker run \
+    --env=LD_LIBRARY_PATH=/workspace/installdir/lib \
+    --env=MAP_PATH_PREFIX=$MAP_PATH_PREFIX \
+    --env=MAP_FORMAT=$MAP_FORMAT \
+    --env=LDM_REGION_DVN=$LDM_REGION_DVN \
+    --env=MITF_PATH=/workspace \
+    --env=GENERATE_SUCCESS_GEO_NODES=$GENERATE_SUCCESS_GEO_NODES \
+    --env=SUCCESS_GEO_NODES_RUNNER=$SUCCESS_GEO_NODES_RUNNER \
+    --env=MODE=$GENERATION_MODE \
+    --interactive \
+    --name=$BUILD_TAG \
+    --net=host \
+    --rm \
+    --user=bldadmin \
+    --volume=$MAP_PATH_PREFIX:$MAP_PATH_PREFIX:ro \
+    --volume=$HOME/.aws:/workspace/.aws:ro \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/generate_xmls_from_dumps.sh

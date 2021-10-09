@@ -1,0 +1,23 @@
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull $DOCKER_IMAGE
+
+docker run \
+    --env AWS_DEFAULT_REGION=us-east-1 \
+    --env DRY_RUN=$DRY_RUN \
+    --name=$BUILD_TAG \
+    --interactive \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE bash -esux << "EOS"
+
+    sudo pip install DeepDiff
+
+    if [ $DRY_RUN == 'true' ]; then
+        python3 map-integration-testing/ci/routing/update_success_geo_nodes.py --dry-run
+    else
+        python3 map-integration-testing/ci/routing/update_success_geo_nodes.py
+    fi
+EOS

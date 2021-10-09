@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -xe
+
+# Check mandatory variables
+source map-integration-testing/ci/routing/common_functions.sh
+exit_if_no_env_var MAP_FORMAT
+exit_if_no_env_var SERVER_BUILD_JOB
+set_env_var_if_not_set SERVER_BUILD_NUMBER "lastSuccessfulBuild"
+set_env_var_if_not_set OUTPUT_DIR "./output/${MAP_FORMAT}"
+
+
+# Get Test Routing Component from SV related Jenkins build job
+if [[ ${MAP_FORMAT} == "BRF" ]]; then
+    wget -nc -v --tries=3 -P ${OUTPUT_DIR} --timeout=120 https://hls.cci.in.here.com/job/hls_routing/job/sv/job/build/job/${SERVER_BUILD_JOB}/${SERVER_BUILD_NUMBER}/s3/download/build/routing-hls.tar.gz
+else
+    echo "Unsupported map format"
+    exit 1
+fi
+
+# Copy test routing component archive to S3 with putting ACL
+aws s3 cp ${OUTPUT_DIR}/routing-hls.tar.gz \
+          s3://${MITF_ARTIFACTS_BUCKET}/${TRC_KEY_PREFIX}/${MAP_FORMAT}/routing-hls.tar.gz
+
+for object in `aws s3 ls s3://${MITF_ARTIFACTS_BUCKET}/${TRC_KEY_PREFIX}/${MAP_FORMAT}/ |
+    awk '{ print $4 }'`; do
+        echo "INFO: Putting Object ACL to ${object}"
+        aws s3api put-object-acl --bucket ${MITF_ARTIFACTS_BUCKET} \
+                                 --key ${TRC_KEY_PREFIX}/${MAP_FORMAT}/${object} \
+                                 --grant-full-control ${MITF_AWS_S3_GRANTS}
+done

@@ -1,0 +1,18 @@
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+docker run \
+    --env=MAP_S3_PATH=$MAP_S3_PATH \
+    --env=AWS_DEFAULT_REGION=us-east-1 \
+    --interactive \
+    --name=$BUILD_TAG \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE bash -esux << "EOS"
+    python3 map-integration-testing/ci/routing/resolve_dvns.py -p $MAP_S3_PATH
+EOS
+

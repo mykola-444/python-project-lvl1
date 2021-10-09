@@ -1,0 +1,22 @@
+source map-integration-testing/ci/routing/docker_acc.cfg
+
+mkdir mitf_dumps
+tar xf ${WORKSPACE}/tests.tgz -C ${WORKSPACE}/mitf_dumps
+
+docker run \
+    --env=MITF_PATH=/workspace \
+    --env=TOP=${TOP} \
+    --env=PYTHONPATH=/workspace/map-integration-testing \
+    --env=VIRTUAL_TIMEOUT=2m \
+    --interactive \
+    --name=$BUILD_TAG \
+    --rm \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    ${MITF_IMAGE} bash -esux << "EOS"
+    pip3 install --upgrade pip
+    pip3 install matplotlib pandas
+    cd map-integration-testing/
+    python3 utils/japan/report/run.py --mapfan_folder /workspace/mitf_dumps/japan/mapfan/ \
+      --brf_folder /workspace/mitf_dumps/japan/here/ --report_folder /workspace/plot --top ${TOP}
+EOS

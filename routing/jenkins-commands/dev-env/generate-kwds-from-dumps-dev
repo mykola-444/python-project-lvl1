@@ -1,0 +1,44 @@
+set -xe
+
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker_acc.cfg
+DOCKER_IMAGE=$MITF_IMAGE
+
+mkdir mitf_dumps
+tar xf ${WORKSPACE}/tests.tgz -C ${WORKSPACE}/mitf_dumps
+
+# List all xml files - for debug only
+# TODO (asmirnov): The number is incorrect - MITF_VERSION file should be ignored
+dump_number=$(find ${WORKSPACE}/mitf_dumps -type f | wc -l)
+echo "INFO: Dumps number: $dump_number"
+
+echo "Generating and updating tests using downloaded dumps"
+
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+docker run \
+    --env=MITF_PATH=/workspace \
+    --env=VIRTUAL_TIMEOUT=2m \
+    --interactive \
+    --name=$BUILD_TAG \
+    --net=none \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/acceptance/generate_acc_keywords.sh
+
+echo "Preparing MITF tools package"
+cd map-integration-testing/
+rsync -R adapters/olp/utils/coords_to_partition_id.py utils/acceptance_tests.py \
+  utils/web/ref_client.py ci/routing/acceptance/acceptance_tests_updater_dev.py \
+  ci/routing/acceptance/report_analyzer_lite.py ci/routing/gitlab/update_acc_tests_gitlab.sh \
+  ${WORKSPACE}/tools/
+cd ${WORKSPACE}
+touch ${WORKSPACE}/tools/__init__.py ${WORKSPACE}/tools/adapters/__init__.py ${WORKSPACE}/tools/adapters/olp/__init__.py \
+  ${WORKSPACE}/tools/adapters/olp/utils/__init__.py ${WORKSPACE}/tools/utils/__init__.py ${WORKSPACE}/tools/utils/web/__init__.py \
+  ${WORKSPACE}/tools/ci/__init__.py
+
+mv ./mitf_acc_lib ./libs
+tar czf ./mitf_artifact.tgz ./tools/ ./libs

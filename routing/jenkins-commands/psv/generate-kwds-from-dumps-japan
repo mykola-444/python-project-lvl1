@@ -1,0 +1,68 @@
+set -xe
+
+# HMC_VERSION might be specified manually as a job parameter - in this case we do not use map-config's one:
+if [[ -z ${HMC_VERSION} ]]; then
+  source map-config/map/ols/routing/hmc_plus_japan.config
+  if [[ -z ${catalog_hmc_world_services_2} ]]; then
+    echo "Unsupported map-config. Cannot determine HMC+ catalog version"
+    exit 1
+  else
+    HMC_VERSION=${catalog_hmc_world_services_2}
+  fi
+fi
+
+. map-integration-testing/ci/routing/common_functions.sh
+set_env_var_if_not_set BUCKET mitf-artifacts
+source_docker_cfg map-integration-testing/ci/routing/docker_acc.cfg
+DOCKER_IMAGE=$MITF_IMAGE
+
+# Copy generated test dumps to the job's workspace
+aws s3 cp s3://${MITF_ARTIFACTS_BUCKET}/mitf/hmc/acc/japan/HMC_${HMC_VERSION}/tests.tgz ${WORKSPACE}/tests.tgz
+
+s3_cp_exit_code=$(echo $?)
+if [[  ${s3_cp_exit_code} != 0 ]]; then
+  exit ${s3_cp_exit_code}
+fi
+
+# Unpack copied dumps
+mkdir mitf_dumps && tar xf ${WORKSPACE}/tests.tgz -C ${WORKSPACE}/mitf_dumps
+
+# List all xml files - for debug only
+# TODO (asmirnov): The number is incorrect - MITF_VERSION file should be ignored
+dump_number=$(find ${WORKSPACE}/mitf_dumps -type f | wc -l)
+echo "INFO: Dumps number: $dump_number"
+
+echo "Generating and updating tests using downloaded dumps"
+
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+docker run \
+    --env=MITF_PATH=/workspace \
+    --env=VIRTUAL_TIMEOUT=2m \
+    --interactive \
+    --name=$BUILD_TAG \
+    --net=none \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/acceptance/generate_acc_keywords.sh
+
+echo "Preparing MITF tools package"
+cd map-integration-testing/
+rsync -R adapters/olp/utils/coords_to_partition_id.py utils/acceptance_tests.py \
+  utils/web/ref_client.py ci/routing/acceptance/acceptance_tests_updater_dev.py \
+  ci/routing/acceptance/report_analyzer_lite.py ci/routing/gitlab/update_acc_tests_gitlab.sh \
+  ${WORKSPACE}/tools/
+cd ${WORKSPACE}
+touch ${WORKSPACE}/tools/__init__.py ${WORKSPACE}/tools/adapters/__init__.py ${WORKSPACE}/tools/adapters/olp/__init__.py \
+  ${WORKSPACE}/tools/adapters/olp/utils/__init__.py ${WORKSPACE}/tools/utils/__init__.py ${WORKSPACE}/tools/utils/web/__init__.py \
+  ${WORKSPACE}/tools/ci/__init__.py
+
+mv ./mitf_acc_lib ./libs
+echo ${HMC_VERSION} > ./hmc_plus_catalog_version.txt
+tar czf ./mitf_artifact.tgz ./tools/ ./libs ./hmc_plus_catalog_version.txt
+
+aws s3 cp ./mitf_artifact.tgz s3://${BUCKET}/mitf/hmc/kwds/japan/HMC_${HMC_VERSION}/mitf_artifact.tgz
+aws s3api put-object-acl --bucket ${BUCKET} --key mitf/hmc/kwds/japan/HMC_${HMC_VERSION}/mitf_artifact.tgz --grant-full-control ${MITF_AWS_S3_GRANTS}

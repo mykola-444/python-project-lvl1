@@ -1,0 +1,26 @@
+AMI update is recommended after significant changes in mitf docker image
+
+To update image routing-mapdata-rd (108215386062) account should be used ( contact @yaremenk if you need support )
+
+Switch to the corresponding profile:
+
+export AWS_PROFILE=routing-mapdata-rd
+
+Inject DOCKER_IMAGE as env variable:
+
+. ../docker.cfg
+DOCKER_REGISTRY=docker-local.artifactory.in.here.com/cci
+export DOCKER_IMAGE=$DOCKER_REGISTRY/$DOCKER_IMAGE_NAME
+
+Run packer:
+
+packer build packer-ec2.json
+
+
+Copy ami id from the output:
+--> amazon-ebs: AMIs were created:
+us-east-1: ami-id-here
+
+Update AMI ID in jenkins configuration https://ivi-mitf.jenkins.release.in.here.com/configure
+
+Remove old AMI.

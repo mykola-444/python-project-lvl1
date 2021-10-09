@@ -1,0 +1,79 @@
+set -x
+
+source map-integration-testing/ci/routing/common_functions.sh
+exit_if_no_env_var HRN
+exit_if_no_env_var HMC_VERSION
+exit_if_no_env_var TARGET
+exit_if_no_env_var MAX_CHUNK_SIZE
+exit_if_no_env_var PROC_NUMBER
+
+mkdir platform_partitions/
+aws s3 sync s3://mitf-artifacts/platform_partitions/ platform_partitions/ --no-progress
+
+if [ -f ${WORKSPACE}/parts_file ]; then
+    if [ parts_file != ${parts_file} ]; then
+        mv parts_file ${parts_file}
+    fi
+fi
+
+source map-integration-testing/ci/routing/docker_acc.cfg
+
+# Since olp-pysdk docker image does not contain bldadmin user we have to change permissions:
+mkdir -p ${WORKSPACE}/artifacts/
+chmod -R a+rw ${WORKSPACE}/artifacts/
+
+# # This hack is needed to cleanup the environment when you aborted the job:
+# docker rm $(docker stop $(docker ps -a -q --filter ancestor=${NAGINI_IMAGE} --format="{{.ID}}"))
+
+PARTITIONS_FILE=${parts_file}
+if [[ -z ${PARTITIONS} ]] && [[ -z ${PARTITIONS_FILE} ]]; then
+    if [[ ${TARGET} == "world" ]]; then
+        PARTITIONS_FILE=/workspace/platform_partitions/all_world.txt
+    elif [[ ${TARGET} == "japan" ]]; then
+        PARTITIONS_FILE=/workspace/platform_partitions/japan_part_ids.txt
+    fi
+fi
+BASENAME=${PARTITIONS_FILE##*/}
+DB_NAME=$(echo "${BASENAME%.txt}")
+BUCKET=s3://mitf-artifacts/mitf/hmc/db
+count=$(aws s3 ls ${BUCKET}/${DB_NAME} | wc -l)
+if [ $count -gt 0 ]; then
+    EXISTS=true
+fi
+
+if [[ ${EXISTS} ]]; then
+    mkdir -p ${WORKSPACE}/out_folder/
+    aws s3 cp ${BUCKET}/${DB_NAME}/version.txt ${WORKSPACE}/out_folder/version.txt
+    existing_version=$( < ${WORKSPACE}/out_folder/version.txt )
+    if (( existing_version >= HMC_VERSION )); then
+        echo "Existing DB has greater or equal version to the specified HMC version. Skipping adapters..."
+        exit 0
+    fi
+fi
+
+docker pull ${NAGINI_IMAGE}
+echo "Executing OLP adapter"
+trap "{ [[ -z ${BUILD_TAG} ]] || docker ps -aq --filter name=${BUILD_TAG} | \
+    xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+docker run \
+    -p 8888:8888 -p 25333:25333 -e JUPYTER=YES -u root --interactive \
+    -v ${WORKSPACE}/map-integration-testing/config/olp_creds/:/root/.here/ \
+    --env=PARTITIONS=${PARTITIONS} --ulimit nofile=98304:98304 --env=HRN=${HRN} \
+    --env=PARTITIONS_FILE=${PARTITIONS_FILE} \
+    --env=BUCKET=${BUCKET} \
+    --env=DB_NAME=${DB_NAME} \
+    --env=EXISTS=${EXISTS} \
+    --env=HMC_VERSION=${HMC_VERSION} \
+    --env=TARGET=${TARGET} \
+    --env=MAX_CHUNK_SIZE=${MAX_CHUNK_SIZE} \
+    --env=PROC_NUMBER=${PROC_NUMBER} \
+    --volume=${HOME}/.aws:/root/.aws \
+    --volume=${WORKSPACE}:/workspace --workdir=/workspace ${NAGINI_IMAGE} bash -esux << "EOS"
+    yum install -y awscli
+    conda install -y aiohttp
+    cd /nagini && git apply /workspace/map-integration-testing/ci/routing/local/async_support.diff
+    cd /workspace && map-integration-testing/ci/routing/acceptance/run_olp_adapter.sh
+EOS
+
+echo "${HMC_VERSION}" > ${WORKSPACE}/out_folder/version.txt
+aws s3 cp ${WORKSPACE}/out_folder/version.txt ${BUCKET}/${DB_NAME}/version.txt

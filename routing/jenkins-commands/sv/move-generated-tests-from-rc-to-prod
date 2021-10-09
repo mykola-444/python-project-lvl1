@@ -1,0 +1,21 @@
+dvns=$(aws s3 ls s3://mitf-artifacts/mitf/xml-rc/ | rev | cut -d' ' -f1 | rev)
+
+echo "$dvns" | while read dvn
+do
+    aws s3 cp s3://mitf-artifacts/mitf/xml-rc/$dvn/tests.tgz s3://mitf-artifacts/mitf/xml/$dvn/tests.tgz
+    aws s3api put-object-acl \
+        --bucket mitf-artifacts \
+        --key mitf/xml/$dvn/tests.tgz \
+        --grant-full-control 'emailaddress="I_EXT_AWS_CCI_RD@here.com",emailaddress="I_EXT_AWS_ROUTING_RD@here.com",emailaddress="I_EXT_AWS_ROUTING_MAPDATA_RD@here.com",emailaddress="I_EXT_AWS_CONTDELIV_P@here.com"'
+done
+
+geo_nodes=$(aws s3 ls s3://mitf-artifacts/mitf/success_geo_nodes-rc/ | rev | cut -d' ' -f1 | rev)
+
+echo "geo_nodes" | while read geo_node
+do
+    aws s3 cp s3://mitf-artifacts/mitf/success_geo_nodes-rc/$geo_node s3://mitf-artifacts/mitf/success_geo_nodes/$geo_node
+    aws s3api put-object-acl \
+        --bucket mitf-artifacts \
+        --key mitf/success_geo_nodes/$geo_node \
+        --grant-full-control 'emailaddress="I_EXT_AWS_CCI_RD@here.com",emailaddress="I_EXT_AWS_ROUTING_RD@here.com",emailaddress="I_EXT_AWS_ROUTING_MAPDATA_RD@here.com",emailaddress="I_EXT_AWS_CONTDELIV_P@here.com"'
+done

@@ -1,0 +1,40 @@
+#!groovy
+
+pipeline {
+    agent none
+    stages {
+        stage('Start point') {
+            agent any
+            steps {
+                script {
+                    stage ("Download Map") {
+                        build job: "download-map-to-node-dev",
+                        parameters: [
+                            string(name: "DESCRIPTION", value: "NPA_TEST"),
+                            string(name: "USE_CACHE", value: "True"),
+                            string(name: "MITF_GERRIT_REFSPEC", value: "${MITF_GERRIT_REFSPEC}"),
+                            string(name: "MAP_CONFIG_GERRIT_REFSPEC", value: "release/hls/routing"),
+                            string(name: "MAP_FORMAT", value: "OLS_BRF2"),
+                            string(name: "FORCE_DOWNLOAD", value: "false"),
+                            string(name: "MAP_PATH_PREFIX", value: "/tmp/MapData")
+                        ],
+                        wait: true
+                    }
+
+                    stage ("Collect data for NPA Test") {
+                        build job: "generate-test-cases-japan-dev",
+                        parameters: [
+                            string(name: "MITF_GERRIT_REFSPEC", value: "${MITF_GERRIT_REFSPEC}"),
+                            string(name: "MAP_CONFIG_GERRIT_REFSPEC", value: "release/hls/routing"),
+                            string(name: "DATETIME", value: "now"),
+                            string(name: "NPA", value: "true"),
+                            string(name: "TRANSPORT_MODE", value: "car_only"),
+                            string(name: "USE_LIVE_TRAFFIC", value: "true"),
+                            string(name: "MAP_PATH_PREFIX", value: "/tmp/MapData")
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

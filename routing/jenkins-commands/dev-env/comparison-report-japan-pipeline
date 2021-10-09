@@ -1,0 +1,62 @@
+#!groovy
+
+pipeline {
+    agent none
+    stages {
+        stage('Start point') {
+            agent any
+            steps {
+                script {
+                    stage ("Download Map") {
+                        build job: "download-map-to-node-dev",
+                        parameters: [
+                            string(name: "DESCRIPTION", value: "Comparison Report"),
+                            string(name: "USE_CACHE", value: "True"),
+                            string(name: "MITF_GERRIT_REFSPEC", value: "${MITF_GERRIT_REFSPEC}"),
+                            string(name: "MAP_CONFIG_GERRIT_REFSPEC", value: "dev/routing"),
+                            string(name: "MAP_FORMAT", value: "OLS_BRF2"),
+                            string(name: "FORCE_DOWNLOAD", value: "false"),
+                            string(name: "MAP_PATH_PREFIX", value: "/tmp/MapData")
+                        ],
+                        wait: true
+                    }
+
+                    stage ("Collect data for Comparison Report (incl. Mapfan images)") {
+                        build job: "generate-test-cases-japan-dev",
+                        parameters: [
+                            string(name: "MITF_GERRIT_REFSPEC", value: "${MITF_GERRIT_REFSPEC}"),
+                            string(name: "MAP_CONFIG_GERRIT_REFSPEC", value: "dev/routing"),
+                            string(name: "DATETIME", value: "20201012_100000"),
+                            string(name: "NPA", value: "false"),
+                            string(name: "TRANSPORT_MODE", value: "car_only"),
+                            string(name: "USE_LIVE_TRAFFIC", value: "true"),
+                            string(name: "DRY_RUN", value: "false"),
+                            string(name: "MAP_PATH_PREFIX", value: "/tmp/MapData")
+                        ],
+                        wait: true
+                    }
+
+                    stage ("Collect HERE images") {
+                        build job: "get-here-images-japan-dev",
+                        parameters: [
+                            string(name: "MITF_GERRIT_REFSPEC", value: "${MITF_GERRIT_REFSPEC}"),
+                            string(name: "RESEARCH_BUILD_JOB", value: "dev-env/generate-test-cases-japan-dev"),
+                            string(name: "RESEARCH_BUILD_NUMBER", value: "lastSuccessfulBuild")
+                        ],
+                        wait: true
+                    }
+
+                    stage ("Generate Comparison Report") {
+                        build job: "generate-comparison-report-japan-dev",
+                        parameters: [
+                            string(name: "MITF_GERRIT_REFSPEC", value: "${MITF_GERRIT_REFSPEC}"),
+                            string(name: "RESEARCH_BUILD_JOB", value: "dev-env/get-here-images-japan-dev"),
+                            string(name: "RESEARCH_BUILD_NUMBER", value: "lastSuccessfulBuild"),
+                            string(name: "TOP", value: "150")
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,227 @@
+<p>
+    <span style="color: rgb(0,0,0);">The page contained product requirements planned to be delivered in the SDK1.X RC,
+    testing results, bugs and finally verdict by AQA Team to deliver or not the product requirements to the
+    Programs.
+    </span>
+</p>
+<h2>
+    <span style="color: rgb(0,0,0);">
+    JIRA Product Requirements Status
+    </span>
+</h2>
+<p>
+    <ac:structured-macro ac:name="jira" ac:schema-version="1">
+        <ac:parameter ac:name="server">Sael Jira</ac:parameter>
+        <ac:parameter ac:name="columns">key,summary,labels,components,fixversions,status</ac:parameter>
+        <ac:parameter ac:name="maximumIssues">20</ac:parameter>
+        <ac:parameter ac:name="jqlQuery">project in (AEPREQ) and key in ({{ page_data.aepreqs_jira_keys }}) order by fixversion
+        </ac:parameter>
+    </ac:structured-macro>
+</p>
+<h2>
+    <span>Product Requirements test summary Status</span>
+</h2>
+<table>
+<tbody>
+<tr>
+    <th class="numberingColumn" style="text-align: center;"><br/></th>
+    <th style="text-align: center;">PR Key</th>
+    <th style="text-align: center;">Test Report in Confluence</th>
+    <th style="text-align: center;">
+    <div class="content-wrapper"><p>Test Readiness Status</p></div>
+    </th>
+    <th style="text-align: center;">
+    <div class="content-wrapper"><p>Test Execution Status</p></div>
+    </th>
+    <th style="text-align: center;">
+    <div class="content-wrapper"><p>QA Verdict</p></div>
+    </th>
+    <th style="text-align: center;">Comments</th>
+</tr>
+
+{% for ae_key, ae_value in page_data.aepreq_reports.items() %}
+<tr>
+    <td class="numberingColumn" colspan="1">{{loop.index}}</td>
+    <td colspan="1">
+        <div class="content-wrapper">
+            <p>
+                <ac:structured-macro ac:name="jira" ac:schema-version="1">
+                    <ac:parameter ac:name="server">Sael Jira</ac:parameter>
+                    <ac:parameter ac:name="columns">
+                        key,summary,type,created,updated,due,assignee,reporter,priority,status,resolution
+                    </ac:parameter>
+                    <ac:parameter ac:name="key">{{ ae_key }}</ac:parameter>
+                </ac:structured-macro>
+            </p>
+        </div>
+    </td>
+    <td colspan="1">
+        <p>
+            <a href="{{ ae_value.report_url }}">{{ ae_value.report_name}}</a>
+        </p>
+    </td>
+    <td colspan="1" style="text-align: center;">
+        <div class="content-wrapper">
+            <p>
+                <ac:structured-macro ac:name="status" ac:schema-version="1">
+                    <ac:parameter ac:name="colour">Grey</ac:parameter>
+                    <ac:parameter ac:name="title">TO DO</ac:parameter>
+                </ac:structured-macro>
+            </p>
+        </div>
+    </td>
+    <td colspan="1" style="text-align: center;">
+        <div class="content-wrapper">
+            <p>
+                <ac:structured-macro ac:name="status" ac:schema-version="1">
+                    <ac:parameter ac:name="colour">Grey</ac:parameter>
+                    <ac:parameter ac:name="title">UNEXECUTED</ac:parameter>
+                </ac:structured-macro>
+            </p>
+        </div>
+    </td>
+    <td colspan="1" style="text-align: center;">
+        <div class="content-wrapper">
+            <p>
+                <ac:structured-macro ac:name="status" ac:schema-version="1">
+                    <ac:parameter ac:name="colour">Grey</ac:parameter>
+                    <ac:parameter ac:name="title">NA</ac:parameter>
+                </ac:structured-macro>
+            </p>
+        </div>
+    </td>
+    <td colspan="1"><br/></td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<p class="auto-cursor-target"><br/></p>
+<ac:structured-macro ac:name="expand" ac:schema-version="1">
+    <ac:parameter ac:name="title">Test Statuses List</ac:parameter>
+    <ac:rich-text-body><p class="auto-cursor-target"><br/></p>
+        <table class="wrapped">
+            <colgroup>
+                <col/>
+                <col/>
+                <col/>
+            </colgroup>
+            <tbody>
+            <tr>
+                <td class="highlight-grey" data-highlight-colour="grey"><strong>Test Readiness Statuses</strong>
+                </td>
+                <td class="highlight-grey" colspan="1" data-highlight-colour="grey">
+                    <strong><span style="color: rgb(0,0,0);">Test Execution Status</span></strong>
+                </td>
+                <td class="highlight-grey" colspan="1" data-highlight-colour="grey">
+                    <strong><span style="color: rgb(0,0,0);">QA Verdict</span></strong>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div class="content-wrapper">
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Grey</ac:parameter>
+                                <ac:parameter ac:name="title">TO DO</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Yellow</ac:parameter>
+                                <ac:parameter ac:name="title">ongoing</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Green</ac:parameter>
+                                <ac:parameter ac:name="title">DONE</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Blue</ac:parameter>
+                                <ac:parameter ac:name="title">OUT OF SCOPE</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                    </div>
+                </td>
+                <td colspan="1">
+                    <div class="content-wrapper">
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Grey</ac:parameter>
+                                <ac:parameter ac:name="title">unexecuted</ac:parameter>
+                            </ac:structured-macro>
+                            <span style="color: rgb(0,0,0);"> </span></p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Yellow</ac:parameter>
+                                <ac:parameter ac:name="title">In Progress</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Green</ac:parameter>
+                                <ac:parameter ac:name="title">Completed</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Blue</ac:parameter>
+                                <ac:parameter ac:name="title">blocked</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                    </div>
+                </td>
+                <td colspan="1">
+                    <div class="content-wrapper">
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Grey</ac:parameter>
+                                <ac:parameter ac:name="title">NA</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Green</ac:parameter>
+                                <ac:parameter ac:name="title">ok</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                        <p>
+                            <ac:structured-macro ac:name="status" ac:schema-version="1">
+                                <ac:parameter ac:name="colour">Red</ac:parameter>
+                                <ac:parameter ac:name="title">nok</ac:parameter>
+                            </ac:structured-macro>
+                        </p>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+        <p class="auto-cursor-target"><br/></p>
+    </ac:rich-text-body>
+</ac:structured-macro>
+<p><br/></p>
+
+<h2>Product Requirements defects</h2>
+<ac:structured-macro ac:name="table-plus" ac:schema-version="1">
+    <ac:parameter ac:name="atlassian-macro-output-type">INLINE</ac:parameter>
+    <ac:rich-text-body>
+        <p>
+            <ac:structured-macro ac:name="jira" ac:schema-version="1">
+                <ac:parameter ac:name="server">Sael Jira</ac:parameter>
+                <ac:parameter ac:name="columns">key,priority,severity.,summary,status,versions,fixversions
+                </ac:parameter>
+                <ac:parameter ac:name="maximumIssues">20</ac:parameter>
+                {% set issues_query = "" %}
+                {% set iss = 'issue in linkedIssues' %}
+                {% for ae_key in page_data.aepreq_reports.keys() %}
+                    { set issues_query = issues_query + iss + "(" + ae_key + ") or " }
+                {% endfor %}
+                <ac:parameter ac:name="jqlQuery">{{ page_data.search_query }}</ac:parameter>
+                <ac:parameter ac:name="serverId">96a7644c-f730-3bc6-ac67-0e3cbbf3ca7f</ac:parameter>
+            </ac:structured-macro>
+        </p>
+    </ac:rich-text-body>
+</ac:structured-macro><p class="auto-cursor-target"><br/></p>

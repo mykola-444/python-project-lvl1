@@ -1,0 +1,121 @@
+<html>
+<body>
+<head>
+    <link media='all' href='layout.css' type='text/css' rel='stylesheet'/>
+</head>
+
+<table width=1200px border="1">
+    <tr>
+        <th align="center" colspan="2">Requirements Traceability:</th>
+    </tr>
+    <tr>
+        <th>Requirement Query</th>
+        <td>{{ coverage_general_data.jql_filter }}</td>
+    </tr>
+    <tr>
+        <th>Zephyr Tests Query</th>
+        <td>{{ coverage_general_data.zql_filter }}</td>
+    </tr>
+</table>
+
+<table width=400px border="1">
+    <tr>
+        <th align="center" colspan="2">AEPREQ Metrics:</th>
+    </tr>
+    <tr>
+        <th>Covered</th>
+        <td width=100px align="center">{{ coverage_general_data.covered_low_level_tasks }}</td>
+    </tr>
+    <tr>
+        <th>Not Covered</th>
+        <td width=100px align="center">{{ coverage_general_data.non_covered_lov_level_tasks }}</td>
+    </tr>
+    <tr>
+        <th>Total</th>
+        <td width=100px align="center">{{ coverage_general_data.total_low_level_tasks }}</td>
+    </tr>
+    <tr>
+        <th>Requirements Coverage</th>
+        <td width=100px align="center">{{ coverage_general_data.low_level_coverage }}%</td>
+    </tr>
+</table>
+
+<table width=400px border="1">
+    <tr>
+        <th align="center" colspan="2">AEPORT Metrics:</th>
+    </tr>
+    <tr>
+        <th>Covered</th>
+        <td width=100px align="center">{{ coverage_general_data.covered_high_level_tasks}}</td>
+    </tr>
+    <tr>
+        <th>Not Covered</th>
+        <td width=100px align="center">{{ coverage_general_data.non_covered_high_level_tasks }}</td>
+    </tr>
+    <tr>
+        <th>Total</th>
+        <td width=100px align="center">{{ coverage_general_data.total_high_level_tasks }}</td>
+    </tr>
+    <tr>
+        <th>Requirements Coverage</th>
+        <td width=100px align="center">{{ coverage_general_data.high_level_coverage }}%</td>
+    </tr>
+</table>
+
+<table>
+    <tr>
+        <th>S.No</th>
+        <th>REQ JIRA ID</th>
+        <th>REQ Description</th>
+        <th>Test coverage</th>
+        <th>Test Result</th>
+    </tr>
+    {% for aeport in page_data %}
+    <tr>
+        <th rowspan="{{ aeport.test_list|count }}" > {{ aeport._id }} </th>
+        <th rowspan="{{ aeport.test_list|count }}"><a href={{ aeport.url }}> {{ aeport.key }} </a></th>
+        <th rowspan="{{ aeport.test_list|count }}"> {{ aeport.summary }} </th>
+
+        {% if aeport.test_list[0].url%}
+            <th><a href={{ aeport.test_list[0].url }}> {{ aeport.test_list[0].key }} </a></th>
+        {% else %}
+            <th> {{ aeport.test_list[0].key }} </th>
+        {% endif %}
+        <th> {{ aeport.test_list[0].status }} </th>
+    </tr>
+        {% if aeport.test_list|length > 1 %}
+            {% for test in aeport.test_list[1:] %}
+                <tr>
+                    <td><a href={{ test.url }}> {{ test.key }} </a></td>
+                    <td> {{ test.status }} </td>
+                </tr>
+            {% endfor %}
+        {% endif %}
+    {% if aeport.aepreqs %}
+        {% for aepreq in aeport.aepreqs %}
+    <tr>
+        <td rowspan="{{ aepreq.test_list|count }}"> {{ aeport._id }}.{{ aepreq._id }} </td>
+        <td rowspan="{{ aepreq.test_list|count }}"><a href={{ aepreq.url }}> {{ aepreq.key }} </a></td>
+        <td rowspan="{{ aepreq.test_list|count }}"> {{ aepreq.summary }} </td>
+        {% if aepreq.test_list[0].key == "NON-AUTOMATABLE"%}
+            <td>{{ aepreq.test_list[0].key }}</td>
+        {% else %}
+            <td><a href={{ aepreq.test_list[0].url }}> {{ aepreq.test_list[0].key }} </a></td>
+        {% endif %}
+        <td> {{ aepreq.test_list[0].status }} </td>
+    </tr>
+        {% if aepreq.test_list|length > 1 %}
+            {% for test in aepreq.test_list[1:] %}
+                <tr>
+                    <td><a href={{ test.url }}> {{ test.key }} </a></td>
+                    <td> {{ test.status }} </td>
+                </tr>
+            {% endfor %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    {% endfor %}
+    <tr>
+</table>
+</body>
+</html>

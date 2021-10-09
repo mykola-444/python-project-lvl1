@@ -1,0 +1,23 @@
+# Create directory structure
+mkdir -p data
+
+# Temporary patch to see a list of generated xml files
+echo "find \${MITF_PATH} -type f -name *.xml" >> map-integration-testing/ci/routing/mitf_runner.sh
+
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+docker run \
+    --env LDM_REGION_DVN=${LDM_REGION_DVN} \
+    --env MITF_PATH=/workspace \
+    --env DB_PATH=/workspace/data \
+    --interactive \
+    --name=$BUILD_TAG \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/generate_tests.sh $MODE $DESIRED_TC_QTY "$GENERATORS" $SUCCESS_GEO_NODES_RUNNER "$GEO_NODES_ARG"

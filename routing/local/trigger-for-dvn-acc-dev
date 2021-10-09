@@ -1,0 +1,87 @@
+#!/bin/bash -xe
+
+# The following dir should contain map-config and MITF repos you are working with:
+# git clone ssh://$USER@gerrit.it.here.com:29418/mos/map-integration-testing
+# git clone ssh://$USER@gerrit.it.here.com:29418/mos/map-config
+
+export LOCAL_CODEBASE_DIR=${HOME}/here
+export LOCAL_ARTIFACTS_DIR=${HOME}/artifacts
+
+# TODO (asmirnov): Check if --name arg can be read from inside the container. If so LOCAL_RUN is extra
+export BUILD_TAG=local_run_0
+export LOCAL_RUN=true
+
+export MITF_LOCATION=${LOCAL_CODEBASE_DIR}/map-integration-testing
+export MAP_CONFIG_LOCATION=${LOCAL_CODEBASE_DIR}/map-config
+
+# DB_PATH should point to the location that contains appropriate LDM data WITHOUT(!) DVN at the end
+export DB_PATH=/Users/asmirnov/new_ubuntu_vm/ldm/sqlite  # /Volumes/maps/ldm
+export DESIRED_TC_QTY=5
+export MODE=research
+export GENERATORS=AccHighwaysRoadsTestDataGenerator,AccTollRoadsTestDataGenerator,TollRoadsTestDataGenerator
+
+export SUCCESS_GEO_NODES_RUNNER=sgn_generate
+export ORIG_COVERAGE=false
+export USE_INVESTIGATION_LIST=false
+export USE_CACHE=false
+
+# MAP_PATH_PREFIX should point to the location that contains appropriate map data following dir structure im map-config
+# Some examples:
+# - Sparta: ${MAP_PATH_PREFIX}/ndsha-sparta-prod/prod/RW/2.32.73.412/map/NAVCMP/ROOT.NDS
+# - HLS: ${MAP_PATH_PREFIX}/brf/map_91/format8/int/builds/08.030.0091.0150/routeserver/BRF8.30.91.150/273317
+# - F8: ${MAP_PATH_PREFIX}/map_91/format8/int/builds/08.030.0091.0151/
+export MAP_PATH_PREFIX=/Users/asmirnov/new_ubuntu_vm/ # /Volumes/maps
+
+export LDM_REGION_DVN=AU_181G0
+
+case "$1" in
+  "f8")
+    export MAP_FORMAT=F8
+    export CLIENT_BUILD_JOB=Build-linux64-debug
+    export CLIENT_BUILD_NUMBER=lastSuccessfulBuild
+    ;;
+  "hls")
+    export MAP_FORMAT=BRF
+    export SERVER_BUILD_JOB=psv-linux-x86-gcc7.2-release
+    export SERVER_BUILD_NUMBER=lastSuccessfulBuild
+    ;;
+  "sparta")
+    export MAP_FORMAT=NDS_SPARTA
+    export CLIENT_BUILD_JOB=psv-linux-x86-gcc5.4-release-nds2.5.2
+    export CLIENT_BUILD_NUMBER=lastSuccessfulBuild
+    ;;
+  *)
+    echo "You have failed to specify what to do correctly."
+    exit 1
+    ;;
+esac
+
+export WORKSPACE=/tmp/$1
+
+rm -rf ${WORKSPACE}  # Add verification if exists
+mkdir ${WORKSPACE}
+mkdir -p ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}
+
+## Unfortunately symlinks created on host do no work inside container
+rsync -r --exclude .git ${MITF_LOCATION} ${WORKSPACE}
+rsync -r --exclude .git ${MAP_CONFIG_LOCATION} ${WORKSPACE}
+
+# SUCCESS_GEO_NODES
+# export GEO_NODES_ARG="787970919;1145110382;1208310292;985935248;843660152;1199501109;820889961;1145110382;910340537;1133830141;1054572428;985935248;1208325179;1000348162;918147899;920098080;918147899;787970919;913771930;1199501109"
+
+cd ${WORKSPACE}
+# You can replace actual steps by copying existing artifacts to speed up local development
+# e.g. instead of running generate-test-cases-dev you copy existing tests.tgz to $WORKSPACE
+bash -x ${MITF_LOCATION}/ci/routing/jenkins-commands/dev-env/generate-test-cases-dev
+cp ./tests.tgz ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}/
+# cp ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}/tests.tgz ${WORKSPACE}
+
+bash -x ${MITF_LOCATION}/ci/routing/jenkins-commands/dev-env/generate-kwds-from-dumps-dev
+cp ./test_libs.tgz ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}/
+#cp ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}/test_libs.tgz ${WORKSPACE}
+
+bash -x ${MITF_LOCATION}/ci/routing/jenkins-commands/dev-env/update-acc-tests-dev
+cp ./robot_specs.tgz ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}/
+# cp ${LOCAL_ARTIFACTS_DIR}/${LDM_REGION_DVN}/robot_specs.tgz ${WORKSPACE}
+
+bash -x ${MITF_LOCATION}/ci/routing/jenkins-commands/dev-env/test-acceptance-mitf-dev

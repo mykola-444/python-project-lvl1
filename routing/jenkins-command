@@ -1,0 +1,6 @@
+#!/bin/bash
+set -eux
+
+readonly INSTALLDIR_PREFIX="map-integration-testing/ci/routing/jenkins-commands"
+exec ${INSTALLDIR_PREFIX}/${JOB_NAME} "$@"
+

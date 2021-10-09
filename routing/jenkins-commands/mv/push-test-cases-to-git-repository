@@ -1,0 +1,85 @@
+#!/bin/bash -ex
+
+if [[ -z ${TOPIC} ]] && [[ ! -z ${GERRIT_TOPIC} ]]; then
+    export TOPIC=${GERRIT_TOPIC}
+fi
+
+case ${TOPIC} in
+    "FORMAT8_FEAT_DAL_MAP_VERSION"* )
+        MAP_CFG='map_format8.config'
+        ;;
+    "FORMAT8_HLS_ROUTING_MAP_VERSION"* )
+        MAP_CFG='map_format8.config'
+        ;;
+    *"NDS_OLYMPIA_MAP_VERSION"* )
+        MAP_CFG='map_nds.config'
+        ;;
+    *"NDS_STANDARD_MAP_VERSION"* )
+        MAP_CFG='map_nds_standard.config'
+        ;;
+    *"NDS_MOTEGI_MAP_VERSION"* )
+        MAP_CFG='map_nds_vanilla.config'
+        ;;
+    *"NDS_DONINGTON_MAP_VERSION"* )
+        MAP_CFG='map_nds_donington.config'
+        ;;
+    *"NDS_BONNEVILLE_MAP_VERSION"* )
+        MAP_CFG='map_nds_bonneville.config'
+        ;;
+    *"NDS_ACDC_MAP_VERSION"* )
+        MAP_CFG='map_nds_acdc.config'
+        ;;
+    *"NDS_SUPERSET_MAP_VERSION"* )
+        MAP_CFG='map_nds_superset.config'
+        ;;
+    *"NDS"*"SPARTA"*"MAP_VERSION"* )
+        MARKET=$(echo ${TOPIC} | grep -oP "(EU|NA|RW)" | tr '[:upper:]' '[:lower:]')
+        if [[ -z ${MARKET} ]]; then
+            echo "Cannot get Sparta Map Market form ${TOPIC} Topic"
+            exit 1
+        fi
+        MAP_CFG="map/sparta/mapdb/${MARKET}.config"
+        ;;
+    "BRF"* )
+        MAP_CFG='map_format8.config'
+        echo "BRF is not supported at the moment."
+        exit 0
+        ;;
+    * )
+        echo "TOPIC=${TOPIC} is not supported"
+        exit 1
+        ;;
+esac
+
+source map-integration-testing/ci/routing/common_functions.sh
+
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull ${DOCKER_IMAGE}
+trap "{ [[ -z ${BUILD_TAG} ]] || docker ps -aq --filter name=${BUILD_TAG} | \
+xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+mkdir xml
+
+export PATH_TO_XMLS=${WORKSPACE}/xml
+
+docker run \
+    --env MITF_PATH=/workspace \
+    --env AWS_DEFAULT_REGION=us-east-1 \
+    --env PATH_TO_XMLS=/workspace/xml \
+    --env MAP_CFG=${MAP_CFG} \
+    --env TOPIC=${TOPIC} \
+    --name=${BUILD_TAG} \
+    --interactive \
+    --rm \
+    --user=bldadmin \
+    --volume=${WORKSPACE}:/workspace \
+    --workdir=/workspace \
+    ${DOCKER_IMAGE} bash -esux << "EOS"
+    python3 ./map-integration-testing/ci/routing/download_xmls.py --map_config installdir/map_config/${MAP_CFG} \
+                                                                  --path_to_xmls ${PATH_TO_XMLS}
+    ./map-integration-testing/ci/routing/cleanup_xmls.sh
+    ./map-integration-testing/ci/routing/patch_xmls.sh
+EOS
+
+./map-integration-testing/ci/routing/push_xmls.sh
+

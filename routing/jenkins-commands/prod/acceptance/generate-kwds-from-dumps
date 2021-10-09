@@ -1,0 +1,35 @@
+#!/bin/bash
+set -xe
+
+source map-integration-testing/ci/routing/common_functions.sh
+
+# Copy generated test dumps to the job's workspace
+aws s3 cp s3://${MITF_ARTIFACTS_BUCKET}/mitf/acc/${LDM_REGION_DVN}/tests.tgz ${WORKSPACE}/tests.tgz
+
+# Unpack copied dumps
+mkdir mitf_dumps && tar xf ${WORKSPACE}/tests.tgz -C ${WORKSPACE}/mitf_dumps
+
+# List all unpacked dump files - for debug only
+dump_number=$(find ${WORKSPACE}/mitf_dumps -type f ! -name MITF_VERSION | wc -l)
+echo "INFO: Dumps number: $dump_number"
+
+echo "Generating and updating tests using downloaded dumps"
+
+# Docker preparation and execution
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull ${DOCKER_IMAGE} && exception_docker "${BUILD_TAG}"
+
+docker run --env=MITF_PATH="/workspace" \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --rm \
+           --user="bldadmin" \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir="/workspace" \
+           ${DOCKER_IMAGE} map-integration-testing/ci/routing/acceptance/generate_acc_keywords.sh
+
+# Upload generated test libs to S3 and put object ACL
+aws s3 cp ${WORKSPACE}/test_libs.tgz s3://${MITF_ARTIFACTS_BUCKET}/mitf/acc/${LDM_REGION_DVN}/origin_test_libs.tgz
+aws s3api put-object-acl --bucket ${MITF_ARTIFACTS_BUCKET} \
+                         --key mitf/acc/${LDM_REGION_DVN}/origin_test_libs.tgz \
+                         --grant-full-control ${MITF_AWS_S3_GRANTS}

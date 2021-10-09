@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+set -xe
+
+# Set mandatory variables
+source map-integration-testing/ci/routing/common_functions.sh
+exit_if_no_env_var HMC_VERSION
+exit_if_no_env_var TARGET
+set_env_var_if_not_set DRY_RUN false
+
+# TODO (asmirnov): Get region-separated archives from upstream jobs or download them from S3, then merge
+echo "Unpacking upstream artifact: test_libs.tgz"
+mkdir ${WORKSPACE}/libs && tar zxf test_libs.tgz -C ${WORKSPACE}/libs
+
+echo "Preparing MITF tools package"
+cd map-integration-testing/
+rsync -R adapters/olp/utils/coords_to_partition_id.py utils/acceptance_tests.py \
+  utils/web/ref_client.py ci/routing/acceptance/acceptance_tests_updater_dev.py \
+  ci/routing/acceptance/report_analyzer_lite.py ci/routing/gitlab/update_acc_tests_gitlab.sh \
+  ${WORKSPACE}/tools/
+cd ${WORKSPACE}
+touch ${WORKSPACE}/tools/__init__.py ${WORKSPACE}/tools/adapters/__init__.py ${WORKSPACE}/tools/adapters/olp/__init__.py \
+  ${WORKSPACE}/tools/adapters/olp/utils/__init__.py ${WORKSPACE}/tools/utils/__init__.py ${WORKSPACE}/tools/utils/web/__init__.py \
+  ${WORKSPACE}/tools/ci/__init__.py
+
+if [[ ${TARGET} == "world" ]]; then
+  git clone https://gitlab-ci-token:${GITLAB_TOKEN}@main.gitlab.in.here.com/routing/mapvalidation/mitf-acceptance-tests.git
+  cd mitf-acceptance-tests
+elif [[ ${TARGET} == "japan" ]]; then
+  git clone https://gitlab-ci-token:${GITLAB_TOKEN}@main.gitlab.in.here.com/routing/mapvalidation/mitf-acceptance-tests-japan.git
+  cd mitf-acceptance-tests-japan
+fi
+
+is_remote_exists=$(git ls-remote --heads origin "HMC_${HMC_VERSION}" | wc -l)
+if [[ ${is_remote_exists} == "0" ]]; then
+  git checkout -b "HMC_${HMC_VERSION}"
+else
+  git checkout "HMC_${HMC_VERSION}"
+fi
+
+# remove old files
+if [ -d libs ]; then
+  git rm -r libs
+fi
+if [ -d tools ]; then
+  git rm -r tools
+fi
+mv ${WORKSPACE}/libs/ ./
+mv ${WORKSPACE}/tools/ ./
+git add libs tools
+git commit -m "MITF-generated acceptance test keyword libraries for BRF2 (HMC: ${HMC_VERSION})"
+
+if [[ ${DRY_RUN} == "true" ]]; then
+  git status
+else
+  if [[ ${is_remote_exists} == "0" ]]; then
+    git push --push-option=merge_request.create origin "HMC_${HMC_VERSION}"
+  else
+    git push origin "HMC_${HMC_VERSION}"
+  fi
+fi

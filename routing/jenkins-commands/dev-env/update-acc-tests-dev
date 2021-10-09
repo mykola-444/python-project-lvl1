@@ -1,0 +1,48 @@
+set -xe
+
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker_acc.cfg
+DOCKER_IMAGE=$MITF_IMAGE
+MITF_PATH=/workspace
+
+# download build artifact from mos.cci
+if [[ ${MAP_FORMAT} == "HLS_BRF" ]] || [[ ${MAP_FORMAT} == "HLS_BRF2" ]] || [[ ${MAP_FORMAT} == "OLS_BRF" ]] || [[ ${MAP_FORMAT} == "OLS_BRF2" ]]; then
+    wget -N --tries=3 --timeout=120 https://hls.cci.in.here.com/job/hls_routing/job/sv/job/build/job/$SERVER_BUILD_JOB/$SERVER_BUILD_NUMBER/s3/download/build/routing-hls.tar.gz
+    mkdir -p test_routing_component/
+    tar xf routing-hls.tar.gz -C test_routing_component
+    MITF_PATH=$MITF_PATH/map-integration-testing
+elif [[ ${MAP_FORMAT} == "F8" ]]; then
+    wget -N --tries=3 --timeout=120 https://mos.cci.in.here.com/job/$CLIENT_BUILD_JOB/$CLIENT_BUILD_NUMBER/s3/download/build/test_routing_component.tgz
+    tar xf test_routing_component.tgz
+elif [[ ${MAP_FORMAT} == "NDS_SPARTA" ]]; then
+    wget -N --tries=3 --timeout=120 https://psv-corenav.cci.in.here.com/job/sparta/job/psv/job/build/job/$CLIENT_BUILD_JOB/$CLIENT_BUILD_NUMBER/s3/download/build/routing-tests.tar.gz
+    tar xf routing-tests.tar.gz
+else
+    echo "ERROR: Undetermined/unsupported MAP_FORMAT=${MAP_FORMAT}"
+    exit 1
+fi
+
+mkdir test_libs
+tar xf test_libs.tgz -C test_libs
+
+# List all xml files - for debug only
+lib_number=$(find ./test_libs -type f | wc -l)
+echo "INFO: libs number: $lib_number"
+
+echo "Updating tests using downloaded dumps"
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+docker run \
+    --env=MITF_PATH=$MITF_PATH \
+    --env=MAP_FORMAT=$MAP_FORMAT \
+    --env=VIRTUAL_TIMEOUT=2m \
+    --env=PYTHONPATH=/workspace/map-integration-testing:/workspace/map-integration-testing/ci/routing \
+    --interactive \
+    --name=$BUILD_TAG \
+    --net=host \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/acceptance/update_acc_tests.sh

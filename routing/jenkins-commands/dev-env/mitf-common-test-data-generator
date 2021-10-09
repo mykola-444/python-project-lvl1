@@ -1,0 +1,39 @@
+# Temporary patch to see a list of generated xml files
+echo "find \${MITF_PATH} -type f -name *.xml" >> map-integration-testing/ci/routing/mitf_runner.sh
+
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull $DOCKER_IMAGE
+set_env_var_if_not_set DB_PATH /home/bldadmin/data
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+CONFIG_PARAMS="BOAT_FERRY=${BOAT_FERRY} \
+RAIL_FERRY=${RAIL_FERRY} \
+BRIDGE=${BRIDGE} \
+UNPAVED=${UNPAVED} \
+TUNNEL=${TUNNEL} \
+SEASONAL_CLOSURE=${SEASONAL_CLOSURE} \
+FUNCTIONAL_CLASS=${FUNCTIONAL_CLASS} \
+FORM_OF_WAY=${FORM_OF_WAY} \
+CAR_ALLOWED=${CAR_ALLOWED} \
+PEDESTRIAN_ALLOWED=${PEDESTRIAN_ALLOWED} \
+FIND_EXITS=${FIND_EXITS} \
+MIN_LENGTH=${MIN_LENGTH} \
+MAX_LENGTH=${MAX_LENGTH} \
+DISTANCE_BEFORE_EXIT=${DISTANCE_BEFORE_EXIT}"
+
+docker run \
+    --env LDM_REGION_DVN=${LDM_REGION_DVN} \
+    --env MITF_PATH=/workspace \
+    --env DB_PATH=$DB_PATH \
+	--env CONFIG_PARAMS="${CONFIG_PARAMS}" \
+    --env USE_CACHE=$USE_CACHE \
+    --interactive \
+    --name=$BUILD_TAG \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --volume=$DB_PATH:$DB_PATH \
+    --workdir=/workspace \
+    $DOCKER_IMAGE \
+    map-integration-testing/ci/routing/execute_common_generator.sh $DESIRED_TC_QTY $USE_CACHE

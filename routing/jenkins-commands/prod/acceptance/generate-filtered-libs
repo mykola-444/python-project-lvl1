@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -xe
+
+# Check mandatory variables
+source map-integration-testing/ci/routing/common_functions.sh
+exit_if_no_env_var LDM_REGION_DVN
+exit_if_no_env_var MAP_FORMAT
+set_env_var_if_not_set BRF_MAP_PATH ${WORKSPACE%/*}/acc-test-data-preparation-pipeline/BRF
+create_dir_if_not_exists "test_routing_component"
+
+# Copy required artifacts
+aws s3 cp s3://${MITF_ARTIFACTS_BUCKET}/${TRC_KEY_PREFIX}/${MAP_FORMAT}/routing-hls.tar.gz \
+          ./routing-hls.tar.gz
+aws s3 cp s3://${MITF_ARTIFACTS_BUCKET}/mitf/acc/${LDM_REGION_DVN}/origin_test_libs.tgz \
+          ./test_libs.tgz
+
+# Unpack artifacts
+tar xf routing-hls.tar.gz -C test_routing_component
+mkdir test_libs && tar xf test_libs.tgz -C test_libs
+
+# Docker preparation and execution
+source_docker_cfg map-integration-testing/ci/routing/docker_acc.cfg
+docker pull ${MITF_IMAGE} && exception_docker "${BUILD_TAG}"
+
+echo "INFO: Updating tests using downloaded dumps"
+docker run --env=MITF_PATH="/workspace/map-integration-testing" \
+           --env=MAP_FORMAT=${MAP_FORMAT} \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --rm \
+           --user=bldadmin \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir=/workspace \
+           ${MITF_IMAGE} /workspace/map-integration-testing/ci/routing/acceptance/update_acc_tests.sh
+
+mv test_routing_component/share/here/routing/spec test_routing_component/share/here/routing/spec_orig
+mkdir -p test_routing_component/share/here/routing/spec/
+tar xf robot_specs.tgz -C test_routing_component/share/here/routing/spec/
+# Run Acceptance Tests
+docker pull ${HLS_IMAGE} && exception_docker "${BUILD_TAG}"
+docker run --cap-add=SYS_ADMIN \
+           --shm-size 16g \
+           --memory 15G \
+           --cpus 2 \
+           --env=LDM_REGION_DVN=${LDM_REGION_DVN} \
+           --env=MAP_FORMAT=${MAP_FORMAT} \
+           --env=BRF_MAP_PATH=${WORKSPACE%/*}/acc-test-data-preparation-pipeline/BRF \
+           --env=MITF_PATH="/workspace/map-integration-testing" \
+           --env=VIRTUAL_TIMEOUT=4m \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --net=none \
+           --device=/dev/fuse \
+           --rm \
+           --user=bldadmin \
+           --volume=${BRF_MAP_PATH}:${BRF_MAP_PATH}:ro \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir=/workspace \
+            ${HLS_IMAGE} /workspace/map-integration-testing/ci/routing/acceptance/run_acc_tests.sh
+
+docker run --env=MITF_PATH="/workspace/map-integration-testing" \
+           --env=MAP_FORMAT=${MAP_FORMAT} \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --net=host \
+           --rm \
+           --user=bldadmin \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir=/workspace \
+           ${MITF_IMAGE} /workspace/map-integration-testing/ci/routing/acceptance/filter_libs.sh
+
+cd ${WORKSPACE}/output
+tar -czvf ${WORKSPACE}/filtered_test_libs.tgz ./
+aws s3 cp ${WORKSPACE}/filtered_test_libs.tgz s3://${MITF_ARTIFACTS_BUCKET}/mitf/acc/${LDM_REGION_DVN}/
+aws s3api put-object-acl --bucket ${MITF_ARTIFACTS_BUCKET} \
+                         --key mitf/acc/${LDM_REGION_DVN}/filtered_test_libs.tgz \
+                         --grant-full-control ${MITF_AWS_S3_GRANTS}
+
+docker run --env=MITF_PATH="/workspace/map-integration-testing" \
+           --env=PYTHONPATH="/workspace/map-integration-testing:/workspace/map-integration-testing/ci/routing"  \
+           --env=MAP_FORMAT=${MAP_FORMAT} \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --net=host \
+           --rm \
+           --user=bldadmin \
+           --volume=${WORKSPACE}:/workspace \
+           --workdir=/workspace \
+           ${MITF_IMAGE} bash -esux << "EOS"
+           python3 /workspace/map-integration-testing/ci/routing/acceptance/convert_xunit_report.py -d xunit.xml \
+                                                                                                    -b converted_xunit.xml
+EOS

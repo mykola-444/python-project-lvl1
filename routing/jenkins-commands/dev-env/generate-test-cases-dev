@@ -1,0 +1,58 @@
+# Temporary patch to see a list of generated xml files
+echo "find \${MITF_PATH} -type f -name *.xml" >> map-integration-testing/ci/routing/mitf_runner.sh
+
+# Check/Set mandatory variables
+source map-integration-testing/ci/routing/common_functions.sh
+set_env_var_if_not_set DB_PATH /home/bldadmin/data
+
+if [[ ${LDM_REGION_DVN} == "HMC_"* ]]; then
+    BUCKET="mitf-artifacts"
+    if [[ ${CONFIG_TEMPLATE} == "routing_config_example.cfg" ]]; then
+        PREFIX="mitf/hmc/int/${TARGET}"
+    elif [[ ${CONFIG_TEMPLATE} == "hmc_config_example.cfg" ]]; then
+        PREFIX="mitf/hmc/acc/${TARGET}"
+    fi
+
+    if [[ ${SKIP_S3_UPLOAD} == "false" ]]; then
+        if [[ ! -z $(aws s3api list-objects-v2 --bucket "${BUCKET}" \
+                                            --prefix "${PREFIX}" \
+                                            --query "Contents[?StorageClass=='STANDARD'].Key" \
+                                            --output text | sed 's/\t/\n/g' | grep "${LDM_REGION_DVN}") ]]; then
+            echo "WARNING: Data at s3://${BUCKET}/${PREFIX}/${LDM_REGION_DVN} is in place. Please delete to force the job to start"
+            exit 0
+        fi
+    fi
+
+    mkdir -p /home/bldadmin/data/$LDM_REGION_DVN
+    if [[ ${TARGET} == "world" ]]; then
+        aws s3 sync s3://mitf-artifacts/mitf/hmc/db/all_world/ /home/bldadmin/data/$LDM_REGION_DVN
+    elif [[ ${TARGET} == "japan" ]]; then
+        aws s3 sync s3://mitf-artifacts/mitf/hmc/db/japan_part_ids/ /home/bldadmin/data/$LDM_REGION_DVN
+    fi
+fi
+
+# Docker preparation and execution
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+docker pull ${DOCKER_IMAGE} && exception_docker "${BUILD_TAG}"
+docker run --env LDM_REGION_DVN=${LDM_REGION_DVN} \
+           --env LDM_SAVE_AS_DVN=${LDM_SAVE_AS_DVN} \
+           --env CONFIG_TEMPLATE=${CONFIG_TEMPLATE} \
+           --env MITF_PATH=/workspace \
+           --env DB_PATH=${DB_PATH} \
+           --env ORIG_COVERAGE=${ORIG_COVERAGE} \
+           --env USE_INVESTIGATION_LIST=${USE_INVESTIGATION_LIST} \
+           --env USE_CACHE=${USE_CACHE} \
+           --env LOCAL_RUN=${LOCAL_RUN} \
+           --env TARGET=${TARGET} \
+           --interactive \
+           --name=${BUILD_TAG} \
+           --rm \
+           --user=bldadmin \
+           --volume=${WORKSPACE}:/workspace \
+           --volume=${DB_PATH}:${DB_PATH} \
+           --workdir=/workspace \
+           ${DOCKER_IMAGE} map-integration-testing/ci/routing/generate_tests.sh ${MODE} \
+                                                                              ${DESIRED_TC_QTY} \
+                                                                              "${GENERATORS}" \
+                                                                              ${SUCCESS_GEO_NODES_RUNNER} \
+                                                                              "${GEO_NODES_ARG}"

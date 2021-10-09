@@ -1,0 +1,58 @@
+. map-integration-testing/ci/routing/common_functions.sh
+
+exit_if_no_env_var REF_CLIENT_KEY
+exit_if_no_env_var MAPFAN_APP_ID
+
+. map-integration-testing/ci/routing/docker_acc.cfg
+
+mkdir tests && tar zxf ${WORKSPACE}/tests.tgz -C tests
+
+DOCKER_IMAGE=$MITF_IMAGE
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG_mitf | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+docker run \
+    --cap-add=SYS_ADMIN \
+    --shm-size 16g \
+    --memory 15G \
+    --cpus 2 \
+    --env=VIRTUAL_TIMEOUT=4m \
+    --interactive \
+    --name=$BUILD_TAG_mitf \
+    --device=/dev/fuse \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    --env=PYTHONPATH=/workspace/map-integration-testing \
+    --env=MAPFAN_APP_ID=${MAPFAN_APP_ID} \
+    --env=REF_CLIENT_KEY=${REF_CLIENT_KEY} \
+    --env=DATETIME=${DATETIME} \
+    --net=host \
+    $DOCKER_IMAGE bash -esux << "EOS"
+    cd /workspace/map-integration-testing
+    sudo apt-get update -y
+    sudo apt-get install -y software-properties-common
+    sudo add-apt-repository universe
+    sudo add-apt-repository multiverse
+    sudo apt-get update -y
+    sudo apt-get install -y wget sudo unzip python3-pip libmagickwand-dev
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+    echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
+    sudo apt-get update -y
+    sudo apt-get install -y --allow-unauthenticated google-chrome-stable
+    wget https://chromedriver.storage.googleapis.com/83.0.4103.39/chromedriver_linux64.zip
+    unzip chromedriver_linux64.zip
+    rm chromedriver_linux64.zip
+    sudo mv chromedriver /usr/local/bin/
+    sudo pip3 install wand selenium
+    cd /workspace/tests/japan/here/pages
+    python3 -m http.server &
+    mkdir screenshots
+    python3 /workspace/map-integration-testing/utils/web/webscreenshot.py \
+      --input_list=list.txt --output_folder=screenshots
+    pkill -f python3  # to kill http server
+    rm /workspace/tests/japan/here/pages/*.html /workspace/tests/japan/here/pages/list.txt
+EOS
+
+cd ${WORKSPACE}/tests
+tar -czf ${WORKSPACE}/tests.tgz *

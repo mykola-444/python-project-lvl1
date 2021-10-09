@@ -1,0 +1,96 @@
+. map-integration-testing/ci/routing/common_functions.sh
+source_docker_cfg map-integration-testing/ci/routing/docker.cfg
+if [[ $MAP_FORMAT == NDS_SPARTA ]]; then
+    DOCKER_IMAGE=$SPARTA_IMAGE
+else
+    DOCKER_IMAGE=$DOCKER_IMAGE_MITF
+fi
+docker pull $DOCKER_IMAGE
+trap "{ [ -z $BUILD_TAG ] || docker ps -aq --filter name=$BUILD_TAG | xargs --no-run-if-empty docker rm -f --volumes || true; } &> /dev/null" EXIT
+
+# for sparta sparta_p220 branch is used in mos/map-config
+if [ $MAP_CONFIG_GERRIT_REFSPEC == master ] && [ $MAP_FORMAT == NDS_SPARTA ]; then
+    echo 'ERROR: Not allowed combination of parameters'
+    echo 'ERROR: Use MAP_CONFIG_GERRIT_REFSPEC=sparta_p220 for NDS_SPARTA'
+    exit 1
+fi
+
+docker run \
+    --env MAP_FORMAT=$MAP_FORMAT \
+    --env REGIONS=$REGIONS \
+    --env AWS_DEFAULT_REGION=us-east-1 \
+    --name=$BUILD_TAG \
+    --interactive \
+    --rm \
+    --user=bldadmin \
+    --volume=$WORKSPACE:/workspace \
+    --workdir=/workspace \
+    $DOCKER_IMAGE bash -esux << "EOS"
+    # map format processing
+    case $MAP_FORMAT in
+        "F8" )
+            MAP_CFG=map-config/map_format8.config ;;
+        "NDS_OLYMPIA" )
+            MAP_CFG=map-config/map_nds.config ;;
+        "NDS_STANDARD" )
+            MAP_CFG=map-config/map_nds_standard.config ;;
+        "NDS_MOTEGI" )
+            MAP_CFG=map-config/map_nds_vanilla.config ;;
+        "NDS_SUPERSET" )
+            MAP_CFG=map-config/map_nds_superset.config ;;
+        "NDS_DONINGTON" )
+            MAP_CFG=map-config/map_nds_donington.config ;;
+        "NDS_BONNEVILLE" )
+            MAP_CFG=map-config/map_nds_bonneville.config ;;
+        "NDS_SPARTA" )
+            # options names in sparta configs are the same
+            # workaround: add market name
+            cp map-config/map/sparta/mapdb/eu.config /tmp/eu.config
+            cp map-config/map/sparta/mapdb/na.config /tmp/na.config
+            sed -i 's/_nds=/_eu_nds=/' /tmp/eu.config
+            sed -i 's/_nds=/_na_nds=/' /tmp/na.config
+            cat /tmp/eu.config /tmp/na.config > /tmp/map_nds_sparta.config
+            MAP_CFG=/tmp/map_nds_sparta.config
+            ;;
+    esac
+    python3 ./map-integration-testing/ci/routing/get_dvn_list.py --map_config $MAP_CFG --regions $REGIONS
+EOS
+
+if [ $MAP_FORMAT != NDS_SPARTA ]; then
+    # Get information about latest succesful artifacts from post-submit verification
+    wget https://mos.cci.in.here.com/job/MOS_dal-submit-verify-trigger/lastSuccessfulBuild/artifact/buildinfo.txt
+    source buildinfo.txt
+
+    if $USE_CUSTOM_SERVER_BUILD ; then
+        echo "Using custom server build"
+        echo SERVER_BUILD_JOB=$CUSTOM_SERVER_BUILD_JOB >> envs
+        # if CUSTOM_SERVER_BUILD_JOB_NUMBER is not number get the build number
+        if ! [[ $CUSTOM_SERVER_BUILD_JOB_NUMBER =~ '^[0-9]+$' ]]; then
+            CUSTOM_SERVER_BUILD_JOB_NUMBER=$(curl -s https://mos.cci.in.here.com/job/$CUSTOM_SERVER_BUILD_JOB/$CUSTOM_SERVER_BUILD_JOB_NUMBER/buildNumber)
+        fi
+        echo SERVER_BUILD_NUMBER=$CUSTOM_SERVER_BUILD_JOB_NUMBER >> envs
+    else
+        echo "Using default server build"
+        echo SERVER_BUILD_JOB=$BUILD_JOB_lin64_rel_routing_server >> envs
+        echo SERVER_BUILD_NUMBER=$BUILD_NUMBER_lin64_rel_routing_server >> envs
+    fi
+
+    if $USE_CUSTOM_CLIENT_BUILD ; then
+        echo "Using custom client build"
+        echo CLIENT_BUILD_JOB=$CUSTOM_CLIENT_BUILD_JOB >> envs
+        # if CUSTOM_CLIENT_BUILD_JOB_NUMBER is not number get the build number
+        if ! [[ $CUSTOM_CLIENT_BUILD_JOB_NUMBER =~ '^[0-9]+$' ]]; then
+            CUSTOM_CLIENT_BUILD_JOB_NUMBER=$(curl -s https://mos.cci.in.here.com/job/$CUSTOM_CLIENT_BUILD_JOB/$CUSTOM_CLIENT_BUILD_JOB_NUMBER/buildNumber)
+        fi
+        echo CLIENT_BUILD_NUMBER=$CUSTOM_CLIENT_BUILD_JOB_NUMBER >> envs
+    else
+        echo "Using default client build"
+        echo CLIENT_BUILD_JOB=$BUILD_JOB_lin32_rel >> envs
+        echo CLIENT_BUILD_NUMBER=$BUILD_NUMBER_lin32_rel >> envs
+    fi
+else # $MAP_FORMAT == NDS_SPARTA
+    echo "Using default sparta build. Custom builds are not supported."
+    NV_BUILD_NUMBER=$(curl -L https://corenav.cci.in.here.com/job/sparta/job/nv/job/build/job/nv-linux-x86-gcc5.4-release-nds2.5.2/lastSuccessfulBuild/buildNumber)
+    echo CLIENT_BUILD_JOB=sparta/job/nv/job/build/job/nv-linux-x86-gcc5.4-release-nds2.5.2 >> envs
+    echo CLIENT_BUILD_NUMBER=$NV_BUILD_NUMBER >> envs
+fi
